@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 
 function generateNodeId(ip_address) {
     let id = sha1(ip_address)
-    console.log(id)
+    console.log("Peer Id: " + id)
     return id;
 }
 
@@ -28,9 +28,11 @@ export class KademliaNode {
     
         switch (type) {
             case 'PING':
+                console.log(this.routingTable)
                 console.log(`Received PING from node: ${senderId}`);
                 //Add node to routing table
                 this.routingTable.addNode(senderId, senderIp, senderPort)
+                console.log(this.routingTable)
                 socket.send(JSON.stringify({ type: 'PONG', data: this.id }));
                 break;
     
