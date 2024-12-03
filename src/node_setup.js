@@ -1,4 +1,4 @@
-import {sha1} from './utils.js'
+import {sha1, Queue} from './utils.js'
 import {RoutingTable} from './routing_table.js'
 import { WebSocketServer, WebSocket } from 'ws'
 
@@ -14,6 +14,7 @@ export class KademliaNode {
         this.routingTable = new RoutingTable(this.id);
         this.ip_address = ip_address;
         this.port = port;
+        this.responseQueue = new Queue()
         this.server = new WebSocketServer({ port });
 
         this.server.on('connection', socket => {
@@ -59,6 +60,7 @@ export class KademliaNode {
     
         socket.on('message', (response) => {
             const parsed = JSON.parse(response);
+            this.responseQueue.enqueue(parsed)
             console.log(`Response from ${targetAddress}:`, parsed);
         });
     
