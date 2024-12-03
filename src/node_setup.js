@@ -1,7 +1,6 @@
 import {sha1} from './utils.js'
 import {RoutingTable} from './routing_table.js'
 import { WebSocketServer, WebSocket } from 'ws'
-import { exec } from 'child_process';
 
 function generateNodeId(ip_address) {
     let id = sha1(ip_address)

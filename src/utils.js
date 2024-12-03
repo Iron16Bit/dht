@@ -1,10 +1,8 @@
+import crypto from 'crypto';
+
 //Compute sha1 of a string
-export async function sha1(str) {
-    const enc = new TextEncoder();
-    const hash = await crypto.subtle.digest('SHA-1', enc.encode(str));
-    return Array.from(new Uint8Array(hash))
-    .map(v => v.toString(16).padStart(2, '0'))
-    .join('');
+export function sha1(data) {
+    return crypto.createHash('sha1').update(data, 'binary').digest('hex')
 }
 
 export function xorDistance(id1, id2) {
