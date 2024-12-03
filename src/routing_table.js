@@ -15,7 +15,9 @@ export class RoutingTable {
         var targetNodeKey = ''
         var targetNodeValue = ''
 
+        console.log("Neighbours:")
         for (var [key, value] of myMap.entries()) {
+            console.log(key)
             distance = xorDistance(key.id, targetId)
             if (distance < minDistance) {
                 minDistance = distance
