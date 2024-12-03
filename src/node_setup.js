@@ -38,7 +38,7 @@ export class KademliaNode {
                 break;
     
             case 'FIND_NODE':
-                const closestNodes = this.routingTable.findClosestNodes(data.targetId);
+                const closestNodes = this.routingTable.findClosestNodes(data.targetId, senderId);
                 socket.send(JSON.stringify({ type: 'NODE_LIST', data: closestNodes }));
                 break;
     
