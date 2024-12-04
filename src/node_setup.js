@@ -34,7 +34,7 @@ export class KademliaNode {
 
     #broadcastPing() {
         const broadcastAddress = '255.255.255.255';
-        const broadcastPort = this.port;t
+        const broadcastPort = this.port;
 
         const message = JSON.stringify({
             type: 'PING',
@@ -99,6 +99,12 @@ export class KademliaNode {
                     else console.log(`PONG sent to ${senderIp}:${senderPort}`);
                 });
                 break;
+
+            case 'PONG':
+                console.log(`Received PONG from ${senderId} (${senderIp}:${senderPort})`);
+
+                // Add sender to routing table
+                this.routingTable.addNode(senderId, senderIp, senderPort);
 
             default:
                 console.log('Unknown UDP message type:', type);
