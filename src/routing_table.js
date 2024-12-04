@@ -26,6 +26,12 @@ export class RoutingTable {
             }
         }
 
-        return [targetNodeKey, targetNodeValue]
+        let retVal = {
+            id: targetNodeKey,
+            ip: targetNodeValue[0],
+            port: targetNodeValue[1]
+        };
+
+        return retVal
     }
 }
