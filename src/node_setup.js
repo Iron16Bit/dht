@@ -84,27 +84,34 @@ export class KademliaNode {
 
         switch (type) {
             case 'PING':
+                if (senderId != this.id) {
                 console.log(`Received PING from ${senderId} (${senderIp}:${senderPort})`);
 
-                // Add sender to routing table
-                this.routingTable.addNode(senderId, senderIp, senderPort);
+                    // Add sender to routing table
+                    this.routingTable.addNode(senderId, senderIp, senderPort);
 
-                // Respond with a PONG
-                const response = JSON.stringify({
-                    type: 'PONG',
-                    data: this.id,
-                });
-                this.udpSocket.send(response, senderPort, senderIp, (error) => {
-                    if (error) console.error('Error sending PONG:', error.message);
-                    else console.log(`PONG sent to ${senderIp}:${senderPort}`);
-                });
+                    // Respond with a PONG
+                    const response = JSON.stringify({
+                        type: 'PONG',
+                        senderId: this.id,
+                        senderIp: this.ip_address,
+                        senderPort: this.port
+                    });
+                    this.udpSocket.send(response, senderPort, senderIp, (error) => {
+                        if (error) console.error('Error sending PONG:', error.message);
+                        else console.log(`PONG sent to ${senderIp}:${senderPort}`);
+                    });
+                }
                 break;
 
             case 'PONG':
-                console.log(`Received PONG from ${senderId} (${senderIp}:${senderPort})`);
+                if (senderId != this.id) {
+                    console.log(`Received PONG from ${senderId} (${senderIp}:${senderPort})`);
 
-                // Add sender to routing table
-                this.routingTable.addNode(senderId, senderIp, senderPort);
+                    // Add sender to routing table
+                    this.routingTable.addNode(senderId, senderIp, senderPort);
+                }
+                break;
 
             default:
                 console.log('Unknown UDP message type:', type);
