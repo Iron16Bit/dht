@@ -34,4 +34,8 @@ export class RoutingTable {
 
         return retVal
     }
+
+    size() {
+        return this.table.size
+    }
 }
