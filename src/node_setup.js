@@ -135,6 +135,8 @@ export class KademliaNode {
         const message = JSON.stringify({
             type: 'PING',
             senderId: this.id,
+            senderIp: this.ip_address,
+            senderPort: this.port,
         });
 
         // Process batches sequentially with a delay
@@ -148,7 +150,7 @@ export class KademliaNode {
             console.log(`Sending batch ${batchIndex + 1}/${batches.length}:`, batch);
 
             batch.forEach((targetIp) => {
-                this.udpSocket.send(message, 0, message.length, this.port, targetIp, (err) => {
+                this.udpSocket.send(message, this.port, targetIp, (err) => {
                     if (err) {
                         console.error(`Error sending PING to ${targetIp}:`, err.message);
                     } else {
