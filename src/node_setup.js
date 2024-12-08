@@ -18,18 +18,35 @@ export class KademliaNode {
         this.ip_address = ip_address;
         this.port = port;
         this.responseQueue = new Queue()
+        this.satisfiedRequestsQueue = new Queue() //When the peer receives a requests like removing a node or providing a peer's info, it stores the request ID here for 2 minutes in order to ignore duplicated requests and avoid cycles
         this.server = new WebSocketServer({ port });
 
         this.server.on('connection', socket => {
             socket.on('message', message => this.#handleMessage(socket, JSON.parse(message)));
         });
         console.log(`Node running at ws://${ip_address}:${port}`);
-
+        
         //Setup UDP socket listener for broadcast
         this.udpSocket = dgram.createSocket('udp4');
         this.#setupBroadcastListener();
-
+        
         this.#init()
+
+        // process.on('exit', () => this.#onExit());
+        // process.on('SIGINT', () => process.exit()); 
+        // process.on('SIGTERM', () => process.exit()); 
+    }
+
+    #onExit() {
+        console.log("Node is shutting down. Notifying peers...");
+        for (var [key, value] of this.routingTable.table.entries()) {
+            let time = Date.now();
+            let requestId = sha1(time + this.id)
+            this.sendMessage(value[0], value[1], {type: 'REMOVE_PEER', data: {requestId: requestId, targetId: this.id}})
+        }
+
+        this.udpSocket.close()
+        this.server.close()
     }
 
     #broadcastPing() {
@@ -134,6 +151,16 @@ export class KademliaNode {
             case 'FIND_NODE':
                 const closestNodes = this.routingTable.findClosestNodes(data.targetId, senderId);
                 socket.send(JSON.stringify({ type: 'NODE_LIST', data: closestNodes }));
+                break;
+
+            case 'REMOVE_PEER':
+                if (this.satisfiedRequestsQueue.contains(data.requestId) == false) {
+                    this.satisfiedRequestsQueue.enqueue(data.requestId)
+                    this.routingTable.removeNode(data.targetId)
+                    for (var [key, value] of this.routingTable.table.entries()) {
+                        this.sendMessage(value[0], value[1], {type: 'REMOVE_PEER', data: data})
+                    }
+                }
                 break;
     
             default:

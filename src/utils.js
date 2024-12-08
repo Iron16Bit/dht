@@ -41,6 +41,16 @@ export class Queue {
     len() {
         return this.backIndex - this.frontIndex
     }
+    contains(val) {
+        var index = this.frontIndex;
+        while (index < this.backIndex) {
+            if (this.items[index] == val) {
+                return true;
+            }
+            index += 1;
+        }
+        return false;
+    }
     get printQueue() {
         return this.items;
     }
