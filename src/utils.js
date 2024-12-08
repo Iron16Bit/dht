@@ -38,6 +38,16 @@ export class Queue {
     peek() {
         return this.items[this.frontIndex]
     }
+    contains(val) {
+        var index = this.frontIndex;
+        while (index < this.backIndex) {
+            if (this.items[index] == val) {
+                return true;
+            }
+            index += 1;
+        }
+        return false;
+    }
     len() {
         return this.backIndex - this.frontIndex
     }

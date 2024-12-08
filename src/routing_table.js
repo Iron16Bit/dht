@@ -10,6 +10,10 @@ export class RoutingTable {
         this.table.set(senderId, [senderIp, senderPort])
     }
 
+    removeNode(key) {
+        this.table.delete(key);
+    }
+
     findClosestNodes(targetId, senderId) {
         var minDistance = 900719925474099
         var targetNodeKey = ''

@@ -84,6 +84,10 @@ export class KademliaNode {
         this.responseQueue = new Queue()
         this.server = new WebSocketServer({ port });
 
+        process.on('exit', () => this.#onExit());
+        process.on('SIGINT', () => process.exit()); 
+        process.on('SIGTERM', () => process.exit()); 
+
         this.server.on('connection', socket => {
             socket.on('message', message => this.#handleMessage(socket, JSON.parse(message)));
         });
@@ -94,6 +98,18 @@ export class KademliaNode {
         this.#setupBroadcastListener();
 
         this.#init()
+    }
+
+    #onExit() {
+        console.log("Node is shutting down. Notifying peers...");
+        for (var [key, value] of this.routingTable.table.entries()) {
+            let time = Date.now();
+            let requestId = sha1(time + this.id)
+            this.sendMessage(value[0], value[1], {type: 'REMOVE_PEER', data: {requestId: requestId, targetId: this.id}})
+        }
+
+        this.udpSocket.close()
+        this.server.close()
     }
 
     #broadcastPing() {
@@ -253,6 +269,18 @@ export class KademliaNode {
             case 'FIND_NODE':
                 const closestNodes = this.routingTable.findClosestNodes(data.targetId, senderId);
                 socket.send(JSON.stringify({ type: 'NODE_LIST', data: closestNodes }));
+                break;
+
+            case 'REMOVE_PEER':
+                if (this.satisfiedRequestsQueue.contains(data.requestId) == false) {
+                    this.satisfiedRequestsQueue.enqueue(data.requestId)
+                    this.routingTable.removeNode(data.targetId)
+                    console.log("Removed peer with Id: " + data.targetId)
+                    console.log(this.routingTable.table)
+                    for (var [key, value] of this.routingTable.table.entries()) {
+                        this.sendMessage(value[0], value[1], {type: 'REMOVE_PEER', data: data})
+                    }
+                }
                 break;
     
             default:
