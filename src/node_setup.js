@@ -2,39 +2,24 @@ import {sha1, Queue} from './utils.js'
 import {RoutingTable} from './routing_table.js'
 import { WebSocketServer, WebSocket } from 'ws'
 import dgram from 'dgram'
-import os from 'os'
+import fs from 'fs';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function readIp() {
+    try {
+        const data = fs.readFileSync('./interface.txt', 'utf8');
+        console.log(data)
+        return data;
+    } catch (err) {
+        console.error(err);
+    }
+}
 
 function generateNodeId(ip_address) {
     let id = sha1(ip_address)
     console.log("Peer Id: " + id)
     return id;
-}
-
-function splitIntoBatches(array, batchSize) {
-    const batches = [];
-    for (let i = 0; i < array.length; i += batchSize) {
-        batches.push(array.slice(i, i + batchSize));
-    }
-    return batches;
-}
-
-// Helper to calculate the full IP range
-function calculateIpRange(ip, netmask) {
-    const ipParts = ip.split('.').map(Number);
-    const netmaskParts = netmask.split('.').map(Number);
-
-    // Calculate the network address
-    const networkParts = ipParts.map((octet, i) => octet & netmaskParts[i]);
-
-    // Calculate the broadcast address
-    const broadcastParts = ipParts.map((octet, i) => octet | ~netmaskParts[i] & 255);
-
-    const networkAddress = networkParts.join('.');
-    const broadcastAddress = broadcastParts.join('.');
-
-    return { networkAddress, broadcastAddress };
 }
 
 // Helper to generate all IPs between start and end
@@ -55,38 +40,15 @@ function generateIpRange(networkAddress, broadcastAddress) {
     return ips;
 }
 
-function getLocalNetworkInfo() {
-    const networkInterfaces = os.networkInterfaces();
-
-    for (const interfaceName in networkInterfaces) {
-        const addresses = networkInterfaces[interfaceName];
-
-        for (const addressInfo of addresses) {
-            if (addressInfo.family === 'IPv4' && !addressInfo.internal) {
-                const { address, netmask } = addressInfo;
-
-                const { networkAddress, broadcastAddress } = calculateIpRange(address, netmask);
-                return { ip: address, netmask, networkAddress, broadcastAddress };
-            }
-        }
-    }
-
-    return null; // No suitable network found
-}
-
 export class KademliaNode {
     constructor() {
         let port = 3000
-        this.ip_address = getLocalNetworkInfo().ip;
+        this.ip_address = readIp();
         this.id = generateNodeId(this.ip_address);
         this.routingTable = new RoutingTable(this.id);
         this.port = port;
         this.responseQueue = new Queue()
         this.server = new WebSocketServer({ port });
-
-        process.on('exit', () => this.#onExit());
-        process.on('SIGINT', () => process.exit()); 
-        process.on('SIGTERM', () => process.exit()); 
 
         this.server.on('connection', socket => {
             socket.on('message', message => this.#handleMessage(socket, JSON.parse(message)));
@@ -98,18 +60,6 @@ export class KademliaNode {
         this.#setupBroadcastListener();
 
         this.#init()
-    }
-
-    #onExit() {
-        console.log("Node is shutting down. Notifying peers...");
-        for (var [key, value] of this.routingTable.table.entries()) {
-            let time = Date.now();
-            let requestId = sha1(time + this.id)
-            this.sendMessage(value[0], value[1], {type: 'REMOVE_PEER', data: {requestId: requestId, targetId: this.id}})
-        }
-
-        this.udpSocket.close()
-        this.server.close()
     }
 
     #broadcastPing() {
@@ -134,56 +84,10 @@ export class KademliaNode {
         });
     }
 
-    async #manualPingLAN(batchSize = 50, delay = 1000) {
-        const networkInfo = getLocalNetworkInfo();
-        if (!networkInfo) {
-            console.error('Unable to determine network information.');
-            return;
-        }
-
-        const { networkAddress, broadcastAddress } = networkInfo;
-        const ipRange = generateIpRange(networkAddress, broadcastAddress);
-        const batches = splitIntoBatches(ipRange, batchSize);
-
-        console.log(`Pinging all IPs in range: ${networkAddress} - ${broadcastAddress}`);
-        console.log(`Total IPs: ${ipRange.length}, Batches: ${batches.length}`);
-
-        const message = JSON.stringify({
-            type: 'PING',
-            senderId: this.id,
-            senderIp: this.ip_address,
-            senderPort: this.port,
-        });
-
-        // Process batches sequentially with a delay
-        const sendBatch = (batchIndex) => {
-            if (batchIndex >= batches.length) {
-                console.log('Finished sending all batches.');
-                return;
-            }
-
-            const batch = batches[batchIndex];
-            console.log(`Sending batch ${batchIndex + 1}/${batches.length}:`, batch);
-
-            batch.forEach((targetIp) => {
-                this.udpSocket.send(message, this.port, targetIp, (err) => {
-                    if (err) {
-                        console.error(`Error sending PING to ${targetIp}:`, err.message);
-                    } else {
-                        console.log(`PING sent to ${targetIp}`);
-                    }
-                });
-            });
-
-            // Schedule the next batch after the delay
-            setTimeout(() => sendBatch(batchIndex + 1), delay);
-        };
-
-        // Start sending the first batch
-        sendBatch(0);
-    }
-
     async #init() {
+        //Connect to WebSocket server
+        await this.sendMessage("localhost", 3001, {type: "PING"})
+        
         //First we try to contact peers using the broadcast address
         let broadcastResult = this.#broadcastPing();
         await sleep(1)
@@ -191,8 +95,7 @@ export class KademliaNode {
         await sleep(5000)
         //The broadcast message fails if it isn't sent or we haven't received any answer (the msg might be blocked by the router)
         if (broadcastResult == false || this.routingTable.size() == 0) {
-            console.log("Broadcast failed. Manually pinging all addresses in the local network...")
-            await this.#manualPingLAN()
+            console.log("No response received to broadcast message")
         }
     }
 
