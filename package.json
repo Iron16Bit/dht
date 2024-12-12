@@ -2,7 +2,9 @@
   "type": "module",
   "scripts": {
     "dev": "truncate -s 0 ./interface.txt; npm run start",
-    "start": "concurrently --kill-others  \"node bin/server.js\" \"node src/node_setup.js\" \"cd bin/ && python3 -m http.server && cd ..\""
+    "start": "concurrently --kill-others  \"node bin/server.js\" \"node src/node_setup.js\" \"cd bin/ && python3 -m http.server && cd ..\"",
+    "build": "rm -rf dist/; nexe -i 'src/node_setup.js' -r src/* -t x64-14.15.3; nexe -i 'bin/server.js' -r bin/server.js -t x64-14.15.3; mkdir dist/; cp interface.txt dist/; mv node_setup dist/; mv server dist/; cp bin/index.html dist/",
+    "zip": "cp redbean/redbean-3.0.0.com dist/ && cd ./dist && zip redbean-3.0.0.com index.html interface.txt node_setup server"
   },
   "dependencies": {
     "ws": "^8.18.0"
