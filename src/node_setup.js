@@ -3,41 +3,26 @@ import {RoutingTable} from './routing_table.js'
 import { WebSocketServer, WebSocket } from 'ws'
 import dgram from 'dgram'
 import fs from 'fs';
+import { type } from 'os';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function readIp() {
-    try {
-        const data = fs.readFileSync('./interface.txt', 'utf8');
-        console.log(data)
-        return data;
-    } catch (err) {
-        console.error(err);
+    var data = ""
+    while (data.length < 7) {
+        try {
+            data = fs.readFileSync('./interface.txt', 'utf8');
+        } catch (err) {
+            console.error(err);
+        }
     }
+    return data;
 }
 
 function generateNodeId(ip_address) {
     let id = sha1(ip_address)
     console.log("Peer Id: " + id)
     return id;
-}
-
-// Helper to generate all IPs between start and end
-function generateIpRange(networkAddress, broadcastAddress) {
-    const ipToNumber = (ip) =>
-        ip.split('.').reduce((acc, octet, i) => acc + (Number(octet) << ((3 - i) * 8)), 0);
-
-    const numberToIp = (num) =>
-        [24, 16, 8, 0].map((shift) => (num >> shift) & 255).join('.');
-
-    const start = ipToNumber(networkAddress) + 1; // Start at first usable address
-    const end = ipToNumber(broadcastAddress) - 1; // End at last usable address
-
-    const ips = [];
-    for (let current = start; current <= end; current++) {
-        ips.push(numberToIp(current));
-    }
-    return ips;
 }
 
 export class KademliaNode {
@@ -86,7 +71,9 @@ export class KademliaNode {
 
     async #init() {
         //Connect to WebSocket server
+        console.log("Sending PING")
         await this.sendMessage("localhost", 3001, {type: "PING"})
+        console.log("Received PONG")
         
         //First we try to contact peers using the broadcast address
         let broadcastResult = this.#broadcastPing();
@@ -94,7 +81,7 @@ export class KademliaNode {
         console.log("Waiting for answers...")
         await sleep(5000)
         //The broadcast message fails if it isn't sent or we haven't received any answer (the msg might be blocked by the router)
-        if (broadcastResult == false || this.routingTable.size() == 0) {
+        if (broadcastResult == false || this.routingTable.size() <= 1) {
             console.log("No response received to broadcast message")
         }
     }
@@ -156,6 +143,7 @@ export class KademliaNode {
         }
     }
 
+    // How to behave when sending msg TYPE
     #handleMessage(socket, message) {
         const { type, data, senderId, senderIp, senderPort } = message;
     
@@ -173,18 +161,6 @@ export class KademliaNode {
                 const closestNodes = this.routingTable.findClosestNodes(data.targetId, senderId);
                 socket.send(JSON.stringify({ type: 'NODE_LIST', data: closestNodes }));
                 break;
-
-            case 'REMOVE_PEER':
-                if (this.satisfiedRequestsQueue.contains(data.requestId) == false) {
-                    this.satisfiedRequestsQueue.enqueue(data.requestId)
-                    this.routingTable.removeNode(data.targetId)
-                    console.log("Removed peer with Id: " + data.targetId)
-                    console.log(this.routingTable.table)
-                    for (var [key, value] of this.routingTable.table.entries()) {
-                        this.sendMessage(value[0], value[1], {type: 'REMOVE_PEER', data: data})
-                    }
-                }
-                break;
     
             default:
                 console.log('Unknown message type:', type);
@@ -201,15 +177,19 @@ export class KademliaNode {
             message.senderPort = this.port;
             socket.send(JSON.stringify(message));
         });
-    
-        socket.on('message', (response) => {
+        
+
+        // How to behave when receiving a msg TYPE
+        socket.on('message', async (response) => {
             const parsed = JSON.parse(response);
             if (parsed.type == 'PONG') {
                 //Our PING has reached a peer, so we add it to our routing table and consume the message
-                this.responseQueue.dequeue()
                 let tmp = targetAddress.split("//")
                 let [ip, port] = tmp[1].split(":")
                 this.routingTable.addNode(parsed.data, ip, port)
+            } else if (parsed.type == 'PING_REQUEST') {
+                let [ip, port] = parsed.data.split(":")
+                await this.sendMessage(ip, port, {type: "PING"})
             }
             this.responseQueue.enqueue(parsed)
             console.log(`Response from ${targetAddress}:`, parsed);
@@ -227,5 +207,15 @@ export class KademliaNode {
         while (this.responseQueue.len() == initialLen) {
             await sleep(1)
         }
+
+        if (msg["type"] == "PING") {
+            this.responseQueue.dequeue();
+        }
     }
 }
+
+function main() {
+    const node = new KademliaNode();
+}
+
+main()

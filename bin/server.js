@@ -3,41 +3,20 @@ import { WebSocketServer } from 'ws';
 import os from 'os';
 import fs from 'fs';
 
-// List all available interfaces names
+// Function to list network interfaces and their IPv4 addresses
 function listNetworkInterfaceNames() {
-    const networkInterfaces = os.networkInterfaces();
-    const interfaceNames = [];
+    const interfaces = os.networkInterfaces();
+    const result = [];
 
-    // Loop through each interface
-    for (const interfaceName in networkInterfaces) {
-        if (networkInterfaces.hasOwnProperty(interfaceName)) {
-            // Add the interface name to the list
-            interfaceNames.push(interfaceName);
+    for (const [name, ifaceArray] of Object.entries(interfaces)) {
+        for (const iface of ifaceArray) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                result.push(`${name}: ${iface.address}`);
+            }
         }
     }
 
-    return interfaceNames;
-}
-
-// Get a specific networkInterface IP given a name
-function getNetworkInterfaceByName(interfaceName) {
-    const networkInterfaces = os.networkInterfaces();
-
-    // Check if the network interface exists
-    if (networkInterfaces[interfaceName]) {
-        // Find the first IPv4 address for the given interface
-        const ipv4Details = networkInterfaces[interfaceName].find(details => details.family === 'IPv4');
-        
-        if (ipv4Details) {
-            return ipv4Details.address; // Return the IPv4 address
-        } else {
-            console.log(`No IPv4 address found for interface "${interfaceName}".`);
-            return null;
-        }
-    } else {
-        console.log(`Network interface "${interfaceName}" not found.`);
-        return null; // Return null if the interface doesn't exist
-    }
+    return result;
 }
 
 // Create an HTTP server
@@ -83,17 +62,17 @@ wss.on('connection', (ws, req) => {
                 // Otherwise respond with PONG
                 ws.send(JSON.stringify({ type: 'PONG', senderId: 'server'}));
             } else if (type == 'INTERFACE_SELECTED') {
-                const selectedInterface = getNetworkInterfaceByName(data)
-                fs.writeFile("../interface.txt", selectedInterface, function(err) {
+                let [name,ip] = data.split(":")
+                fs.writeFile("./interface.txt", ip.slice(1), function(err) {
                     if (err) {
                         console.log(err);
                     }
                 });
             } else {
                 // Forward message from client to server or viceversa
-                for (const [id, clientInfo] of clients) {
-                    if (clientInfo.id != senderId && clientInfo.ws.readyState === WebSocketServer.OPEN) {
-                        clientInfo.ws.send(JSON.stringify(enrichedMessage));
+                for (const peer of clients) {
+                    if (peer[0] != senderId) {
+                        peer[1]["ws"].send(JSON.stringify(parsed))
                     }
                 }
             }

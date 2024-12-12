@@ -1,6 +1,13 @@
 {
   "type": "module",
+  "scripts": {
+    "dev": "truncate -s 0 ./interface.txt; npm run start",
+    "start": "concurrently --kill-others  \"node bin/server.js\" \"node src/node_setup.js\" \"cd bin/ && python3 -m http.server && cd ..\""
+  },
   "dependencies": {
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   }
 }

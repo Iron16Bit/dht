@@ -6,7 +6,7 @@
     <title>WebSocket Browser Client</title>
 </head>
 <body>
-    <h1>WebSocket Browser Client</h1>
+    <h1>WebSocket Initialization</h1>
     <!-- Container for the dynamically generated list -->
     <ul id="dynamic-list"></ul>
 
@@ -15,6 +15,13 @@
 
     <!-- Area to display the confirmed selection -->
     <p id="confirmation-message"></p>
+
+    <!-- Ping an IP -->
+    <h2>Ping an IP Address</h2>
+    <textarea id="ip-textarea" placeholder="Enter IP address here" rows="1" cols="30"></textarea>
+    <button id="ping-button">Ping</button>
+    <p id="ping-result"></p>
+
 
     <script>
         const socket = new WebSocket('ws://localhost:3001');
@@ -89,6 +96,24 @@
                 socket.send(JSON.stringify(selectedInterface))
             } else {
                 alert('Please select an item first.');
+            }
+        });
+
+        // Function to send a ping request
+        document.getElementById('ping-button').addEventListener('click', () => {
+            const ipAddress = document.getElementById('ip-textarea').value;
+            if (ipAddress) {
+                const pingRequest = {
+                    type: 'PING_REQUEST',
+                    senderId: 'browser-client',
+                    senderIp: 'localhost',
+                    senderPort: '8000',
+                    data: ipAddress,
+                };
+                socket.send(JSON.stringify(pingRequest));
+                document.getElementById('ping-result').textContent = 'Pinging...';
+            } else {
+                alert('Please enter an IP address.');
             }
         });
     </script>
