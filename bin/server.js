@@ -81,13 +81,6 @@ wss.on('connection', (ws, req) => {
             ws.send('Error: Invalid message format. Expected JSON with type and senderId.');
         }
     });
-
-    // Handle connection close
-    ws.on('close', () => {
-        console.log('A client disconnected');
-        // Remove client from the clients map
-        clients.delete(senderIp);
-    });
 });
 
 // Start the server
