@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Browser Client</title>
+</head>
+<body>
+    <h1>WebSocket Initialization</h1>
+    <!-- Container for the dynamically generated list -->
+    <ul id="dynamic-list"></ul>
+
+    <!-- Button to confirm the selection -->
+    <button id="confirm-button">Confirm Selection</button>
+
+    <!-- Area to display the confirmed selection -->
+    <p id="confirmation-message"></p>
+
+    <!-- Ping an IP -->
+    <h2>Ping an IP Address</h2>
+    <textarea id="ip-textarea" placeholder="Enter IP address here" rows="1" cols="30"></textarea>
+    <button id="ping-button">Ping</button>
+    <p id="ping-result"></p>
+
+
+    <script>
+        const socket = new WebSocket('ws://localhost:3001');
+
+        socket.addEventListener('open', () => {
+            console.log('Connected to the WebSocket server');
+
+            // Send a PING message to the server upon connection
+            const pingMessage = {
+                type: 'PING',
+                senderId: 'browser-client',
+                senderIp: 'localhost',
+                senderPort: '8000',
+            };
+            socket.send(JSON.stringify(pingMessage));
+        });
+
+        socket.addEventListener('message', (event) => {
+            const message = JSON.parse(event.data);
+            const { type, data, senderId, senderIp, senderPort } = message;
+
+            if (type == 'PONG') {
+                console.log('Received PONG from server:', message);
+            } else if (type == 'INTERFACE_SETUP') {
+                createListFromArray(data);
+            } else {
+                console.log('Received message from server:', message);
+            }
+        });
+
+        socket.addEventListener('error', (error) => {
+            console.error('WebSocket error:', error);
+        });
+
+        socket.addEventListener('close', () => {
+            console.log('Connection to WebSocket server closed');
+        });
+
+        // Function to add list items to the HTML
+        function createListFromArray(arr) {
+            const listContainer = document.getElementById('dynamic-list');
+            listContainer.innerHTML = ''; // Clear any existing list items
+
+            arr.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                li.style.cursor = 'pointer';
+                li.addEventListener('click', () => selectItem(item)); // Allow selecting an item
+                listContainer.appendChild(li);
+            });
+        }
+
+        let selectedItem = null; // Variable to store the selected item
+
+        // Function to select an item
+        function selectItem(item) {
+            selectedItem = item;
+            document.getElementById('confirmation-message').textContent = `You have selected: ${item}`;
+        }
+
+        // Function to confirm the selection when the button is clicked
+        document.getElementById('confirm-button').addEventListener('click', () => {
+            if (selectedItem) {
+                const selectedInterface = {
+                    type: 'INTERFACE_SELECTED',
+                    senderId: 'browser-client',
+                    senderIp: 'localhost',
+                    senderPort: '8000',
+                    data: selectedItem
+                };
+                alert(`You confirmed: ${selectedItem}`);
+                socket.send(JSON.stringify(selectedInterface))
+            } else {
+                alert('Please select an item first.');
+            }
+        });
+
+        // Function to send a ping request
+        document.getElementById('ping-button').addEventListener('click', () => {
+            const ipAddress = document.getElementById('ip-textarea').value;
+            if (ipAddress) {
+                const pingRequest = {
+                    type: 'PING_REQUEST',
+                    senderId: 'browser-client',
+                    senderIp: 'localhost',
+                    senderPort: '8000',
+                    data: ipAddress,
+                };
+                socket.send(JSON.stringify(pingRequest));
+                document.getElementById('ping-result').textContent = 'Pinging...';
+            } else {
+                alert('Please enter an IP address.');
+            }
+        });
+    </script>
+</body>
+</html>
